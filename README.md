@@ -6,4 +6,5 @@
 ## R tutorials
 
 ## How-to for HPC
+[RStudio](/howto/OpenRStudioServer.html)
 
