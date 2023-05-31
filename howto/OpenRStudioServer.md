@@ -1,22 +1,22 @@
 ---
 output: 
   html_document: 
-    highlight: zenburn
-    theme: readable
+    highlight: espresso
+    theme: spacelab
 ---
 # How to open an RStudio server on Rockfish
 
 This brief note provides a quick tutorial on how to open an RStudio server instance in Rockfish and then provides some instructions.
 
-The simplest way to do this is to run
+### STEP 1: Run the RStudio server script
+
+To open a session, run the following RStudio server script
 
 ```{linux}
 r-studio-server.sh
 ```
 
-
-
-This will generate a default RStudio server and produce the following output with few instructions.
+After runnning the script  you will see the following output with few instructions:
 
 ```{linux}
 Creating slurm script: R-Studio-Server.slurm.script
@@ -47,10 +47,11 @@ Creating slurm script: R-Studio-Server.slurm.script
 	 $ scontrol show jobid <SLURM_JOB_ID>
 ```
 
-This generates a RStudio server using 1 node, 1 core for 2 hours in the `defq` queue. This is the default request. One can change these parameters (see below).
+This generates a RStudio server SLURM script using 1 node, 1 core for 2 hours in the `defq` queue. This is the default request. One can change these parameters (see below).
 
+### STEP 2: Submit the RStudio Server job
 
-To run the script, use the following:
+To submit the RStudio server job, run the script using the following:
 ```{linux}
 sbatch R-Studio-Server.slurm.script
 ```
@@ -59,13 +60,15 @@ which will assign a number to the job
 ```{linux}
 Submitted batch job 16396691
 ```
+In this case the job running the RStudio server is `16396691`.
 
-Now you look into the file generated
+### STEP 3: Check the info in the output file
+Now you look into the file generated, that contains the instructions on how to access the RStudio server, 
 ```{linux}
 cat rstudio-server.job.16396691.out
 ```
 
-which shows the following 
+This file contains the following text and instructions:
 
 ```{linux}
 Resetting modules to system default. Reseting $MODULEPATH back to system default. All extra directories will be removed from $MODULEPATH.
@@ -95,25 +98,78 @@ Resetting modules to system default. Reseting $MODULEPATH back to system default
 ```
 
 
-Now, open a new terminal in your computer. And run the first command
+### STEP 4: Access the RStudio Sever
+
+1. Open a new terminal in your computer and run the command
 
 ```{linux}
 ssh -N -L 32865:c545:32865 amele1@login.rockfish.jhu.edu
 ```
 you will need to login with your pwd for Rockfish.
 
-To login into RStudio server, you just open a web browser and paste the address ```http://localhost:32865``` into the browser. Then you will have to use your Rockfish user and pwd to login. 
+2. Open a web browser and past the address
+```
+http://localhost:32865
+```
+To login into RStudio server, use your Rockfish user and password.
 
 
-When you are done, please kill the server using the following command
 
+### STEP 5: Terminate the RStudio Server
+When you are finished using the RSTUDIO server, follow these steps
+
+1. Exit the RStudio session, by clicking the power button on the top right corner of the RStudio window.
+
+2. Run the folllowing command. 
 ```{linux}
 scancel -f 16396691
 ```
 
-If you do not kill the process, the server will run until the 2 hours expire (or more if you requested more than 2 hours..)
+- If you do not terminate the server, it will run until the 2 hours expire (or more if you requested more than 2 hours..)
 
-It is always a good idea to check the jobs running, to see if the server is open
+- It is always a good idea to check the jobs running, to see if the server is open
 ```{linux}
 sqme
 ```
+
+
+## Additional customizations
+
+When running the initial script, one can request different options. We can just check the help function 
+```
+r-studio-server.sh -h
+```
+and it will provide the options. 
+
+```
+usage: r-studio-server.sh [options]
+                  [-n nodes] [-c cpus] [-m memory] [-t walltime] [-p partition] [-a account] [-q qos] [-g gpu] [-e email]
+
+  Starts a SLURM job script to run R-Studio server into singularity container.
+
+
+  options:
+  ?,-h help      give this help list
+    -n nodes     how many nodes you need  (default: 1)
+    -c cpus      number of cpus per task (default: 1)
+    -m memory    memory in K|M|G|T        (default: 4G)
+                 (if m > max-per-cpu * cpus, more cpus are requested)
+                 note: that if you ask for more than one CPU has, your account gets
+                 charged for the other (idle) CPUs as well
+    -t walltime  as dd-hh:mm (default: 00-02:00) 2 hours
+    -p partition partition in defq|bigmem|a100 (default: defq)
+    -a account   if users needs to use a different account and GPU.
+                 Default is primary PI combined with '_' for instance:
+                 <PI-userid>_gpu (default: none)
+    -q qos       quality of Service's that jobs are able to run in your association (default: qos_gpu)
+    -g gpu       specify GRES for GPU-based resources (eg: -g 1 )
+    -e email     notify if finish or fail (default: <userid>@jhu.edu)
+```
+
+For example, the following command
+
+```
+r-studio-server.sh -n 1 -c 2 -m 8G -t 1-02:0 -p defq 
+```
+
+opens a session with 1 node, 2 cpus, 8GB of memory for 1 day and 2 hours, in the partition `defq`. 
