@@ -16,7 +16,7 @@ To open a session, run the following RStudio server script
 r-studio-server.sh
 ```
 
-After runnning the script  you will see the following output with few instructions:
+After running the script  you will see the following output with few instructions:
 
 ```{linux}
 Creating slurm script: R-Studio-Server.slurm.script
