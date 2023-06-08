@@ -1,0 +1,541 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+<style type="text/css">
+body, td {
+   font-size: 18px;
+   font-family: Times;
+}
+code.r{
+  font-size: 16px;
+}
+pre {
+  font-size: 18px;
+  font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+pre code {
+  font-size: 16px;
+  font-family: courier new, 'sans serif', 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+code {
+  font-size: 16px;
+  font-family: courier new, Times;
+}
+
+</style>
+
+
+Short tutorial on igraph package in R
+========================================================
+
+Introduction
+-----------------------------------------------------
+
+This is a short tutorial for the package `igraph`.   
+  
+  
+It contains basic commands for loading network data, analyzing and plotting the network.  
+At the end of this tutorial you should be able to:  
+1. Load network data into R  
+2. Perform a simple analysis of the network  
+3. Visualize the network  
+4. Compute centrality indicators    
+5. Compute indicators of social capital and structural holes
+  
+Preliminaries
+----------------------------------------
+
+When you start the analysis it is good habit to clean the memory. This is 
+accomplished with the command `rm` (which stands for remove)
+
+```{r}
+## clear memory 
+rm(list=ls())
+```
+
+The code removes all the variables in the memory. Next we set up our working directory with
+`setwd`. The command tells R where to look for files and where to save the output. You should change the actual directory to a directory that exists in your computer, of course.
+
+
+```{r}
+## set working directory to your directory
+## in windows
+#setwd("C:/Users/amele1/Dropbox/networkminicourse/codes/") 
+## in mac
+#setwd("/Users/Angelo/Dropbox/NetOrgJHU/GMBA_fall2016/Rtutorials")
+#setwd("/Users/Angelo_1/Dropbox/networkminicourse/codes/") 
+```
+
+To perform the network analysis we need to use an R library called `igraph`. This library allows
+us to load network data, and to compute several statistics of the network.     
+If you have not installed the package yet, you can install it with
+```
+# install package igraph (if you haven't already)
+install.packages("igraph", dependencies=TRUE, repos="http://lib.stat.cmu.edu/R/CRAN/")
+```
+Once `igraph` is installed, we load the library with 
+```{r}
+## load the igraph package
+library(igraph) 
+```
+
+For this example, we will use the network of florentine families discussed in class. It contains 
+15 of the most important families in the Rennaissance. The network corresponds to the marriages
+among families. The data are contained in the file `firenze.txt`.    
+We load the data from the file and put it in the matrix `florence` with the command
+```{r}
+#### Marriage in Renaissance Florence ####
+florence <- read.table("firenze.txt")
+```
+and we transform the data into a matrix 
+```{r}
+florence <- as.matrix(florence)
+```
+
+To visualize what is in the matrix `florence` you just type
+```{r}
+### check what is contained in the matrix florence
+florence
+```
+
+The matrix contains a list of links between families.  
+   
+Up to now, we haven't used any function from the `igraph` package yet. To perform
+any analysis, we need to create a **network object**. In this case we
+have a matrix, `florence`, that contains the edges of the graph. We therefore
+create a network from an `edgelist`, using the command
+
+```{r}
+## create the graph object
+marriage <- graph.edgelist(florence, directed=FALSE)
+```
+Notice that this command needs a `matrix` with 2 columns as an input (and not a data.frame or a vector), and that is the reason why we transformed the initial data.frame `florence` into a matrix.   
+The object `marriage` is a graph object, i.e. in the format
+required by `igraph` for analysis.
+
+```{r}
+## check the graph object
+marriage
+```
+The description of the software says that our graph is UNDIRECTED, with 15 nodes and 20 edges in total. The only attribute is attached to the vertices, and it consists of the names of the families.    
+
+Some preliminary functions are shown below
+```{r}
+ecount(marriage) # count all the edges
+vcount(marriage) # count all the vertices/nodes
+V(marriage)      # shows the list of vertices/nodes
+E(marriage)      # shows the list of edges/links
+```
+
+
+Plotting the network
+--------------------------------------
+
+We can plot the network by calling the function plot
+
+```{r}
+## plot it
+plot(marriage)
+```
+
+We can improve the visualization, changing the color of the vertices, and the labels.
+
+```{r}
+## set some color atributes (V() gives back the 'vertices' = nodes)
+V(marriage)$color = "pink"        # color of the nodes
+V(marriage)$frame.color = "green" # color of the node frame
+V(marriage)$label.color = "red"   # color of the node labels (the family names)
+
+## plot it
+plot(marriage)
+```
+Notice the syntax: take all the vertices in marriage (`V(marriage)`), then assign to each vertex the color pink (V(marriage)$color = "pink"). The same syntax works also for the links.
+Let's change the width of the links and their color
+
+```{r}
+## set some color atributes (E() gives back the 'edges')
+E(marriage)$width <- 2        # width of edges (makes it ticker, default is 1)
+E(marriage)$color <- "blue"   # color of the edges
+
+## plot it
+plot(marriage)
+```
+
+
+
+Degree, paths, centrality
+------------------------------------------
+
+We can now compute the degree of each family and assign it to the object `deg`
+
+```{r}
+# computes the degree of each family
+deg<-degree(marriage)
+deg
+```
+
+If we want to sort the families from the highest degree to the lowest, we use the command `sort`
+
+```{r}
+## print the degree for each family
+sort(deg)                  #from lowest to highest
+sort(deg, decreasing=TRUE) #from highest to lowest
+```
+To compute the degree distribution we use
+```{r}
+# compute the degree distribution
+deg.dist <- degree.distribution(marriage)
+deg.dist
+```
+Where the first number is the fraction of nodes with degree 0, the second number is the
+fraction of nodes with degree 1, and so on.
+For a visualization we can use an histogram or a dot chart 
+```{r}
+# i want both plots in the same figure, so i set a parameter
+# par(mfrow=c(1,2)) the command tells R to generate a figure that
+# contains space for 2 graphs (in 1 row)
+par(mfrow=c(1,2)) 
+hist(deg, freq=FALSE, breaks=10, xlim=c(0,8), 
+     col="blue", main="Degree distribution (histogram)",
+     xlab="Degree")
+stripchart(deg,method="stack",at=0, xlim=c(0,10),
+           pch=19, col="blue", main="Degree distribution (dot chart)",
+           xlab="Degree")
+```
+
+
+We can also find the shortest paths between different pairs of families
+```{r}
+## calculate shortest paths
+## shortest path between Peruzzi and Acciaiuoli
+PtoA <- get.shortest.paths(marriage, from="Peruzzi", to="Acciaiuoli")
+## shortest path between Ginori and Strozzi
+GtoS <- get.shortest.paths(marriage, from="Ginori", to="Strozzi")
+```
+If you want ALL the shortest paths (there may be more than one), you use
+```{r}
+## all the shortest paths between Medici and Bischeri
+MtoB <- get.all.shortest.paths(marriage, from="Medici", to="Bischeri")
+```
+The results of all these commands is an object `list`. For example the result of all shortest paths between Medici and Bischeri is a list with 3 vectors
+```{r}
+# list of results 
+MtoB
+```
+To call the first (vector) element of the `list`, i.e. the element `res[[1]]`, we use
+```{r}
+# first element of the list: a vector with the indices of families in the 
+# 1st shortest path between Medici and Bischeri
+MtoB$res[[1]]
+```
+Notice that this gives us a numeric vector, where each family is indexed by their vertex number (confront with the order generated in `V(marriage)`). However, you want to see the names of the families, so you can write
+```{r}
+# show names of families in 2nd shortest path from Medici to Bischeri 
+V(marriage)[MtoB$res[[1]]]
+```
+The syntax means: take the list of vertices (`V(marriage)`) and consider only the elements that are in the vector `MtoB$res[[1]]`. So it takes the subset of vertices that correspond to the ones indicated in the path `MtoB$res[[1]]`. To get the second of the shortest paths from Medici to Bischeri you type
+```{r}
+# show names of families in 2nd shortest path from Medici to Bischeri 
+V(marriage)[MtoB$res[[2]]]
+```
+and the third is obtained with the same syntax.    
+For the families Peruzzi and Acciaiuoli, we only asked for one of the shortest paths, 
+so the list that we generated contains only 1 vector
+```{r}
+# list of vertices from Peruzzi (family 10) and Acciaiuoli (family 8)
+PtoA
+```
+As before you can always see the names associated with the path by typing (notice that 
+now the first element of the list is just called `[[1]]`)
+```{r}
+# show names of families in path from Peruzzi to Acciaiuoli
+V(marriage)[PtoA$vpath[[1]]]
+```
+As an exercise, do the same with the path from Ginori to Strozzi
+```{r}
+GtoS$vpath[[1]]
+```
+Incidentally, notice that you can always create the same results using the vertex indicator numbers instead of the family names. For example, family Medici is number 9 in the vertex sequence and Bischeri is number 6. If you want ALL the shortest paths (there may be more than one), you use
+
+```{r}
+## all the shortest paths between Medici and Bischeri
+MtoB <- get.all.shortest.paths(marriage, from=9, to=6)
+MtoB
+```
+To visualize the paths we can assign each path a color (say green and blue)
+```{r}
+## set fat edges and default grey (E() returns edges)
+E(marriage)$width <- 2
+E(marriage)$color <- "grey"
+E(marriage, path=c(unlist(PtoA$vpath[[1]])))$color <- "green"
+E(marriage, path=c(unlist(GtoS$vpath[[1]])))$color <- "blue"
+plot(marriage)
+```
+You can also use an interactive version that will allow you to modify the layout
+of the plot 
+```
+tkplot(marriage)
+```
+We can visualize all the shortest paths between Medici and Bischeri. The first path is obtained with the following code
+```{r}
+## show all the shortest paths between Medici and Bischeri
+E(marriage)$width <- 2          # set width of the edge to 2
+E(marriage)$color <- "grey"     # sets edge color to grey
+E(marriage, path=MtoB$res[[1]])$color <- "green"  # Medici=Bischeri path 1 is green
+# When we draw a graph, the layout is determined by an
+# algorithm, which is initialized at a random number.
+# if you want all the graph to look the same, you need to set
+# the seed of the random number to be the same for all graphs
+# here we use 7777 but you may change the nummer
+set.seed(7777)                  # sets seed for random number generator
+plot(marriage)                  # plot the network
+```
+The second shortest path is
+```{r}
+# the 2nd path from Medici to Bischeri is blue
+E(marriage)$color <- "grey"      # re-sets edge color to grey
+E(marriage, path=MtoB$res[[2]])$color <- "blue" # Medici=Bischeri path 2 is blue
+set.seed(7777)                  # sets seed for random number generator
+plot(marriage)                  # plot the network
+```
+and the third is 
+```{r}
+# the 3rd path from Medici to Bischeri is purple
+E(marriage)$color <- "grey"      # re-sets edge color to grey    
+E(marriage, path=MtoB$res[[3]])$color <- "purple" # Medici=Bischeri path 3 is purple
+set.seed(7777)                  # sets seed for random number generator
+plot(marriage)                  # plot the network
+```
+
+We can compute the **length** of the shortest paths between all families by using the command
+```{r}
+## compute the length of shortest paths among all pairs of families
+shortest.paths(marriage)
+```
+The visualization of this matrix is quite ugly in the command line. One simple solution is to save it in an external file and open it in excel to look at it (this is also a good strategy for creating tables to incorporate in your Word write-up later).    
+To save a variable in an external `.csv` (comma separated value) file, we type
+```{r}
+## compute the length of shortest paths among all pairs of families
+spl<-shortest.paths(marriage)
+## save the resulting table into a .csv file
+write.csv(spl, "spl.csv")
+```
+This will save a file `spl.csv` in your working folder, that contains the table. Now you can open it in excel, and format the table as you prefer and eventually copy and paste into your final write-up. (There are several packages that allow you to create tables and format them for final documents, but they require some advanced programming).    
+
+      
+      
+The package contains several functions to compute the centrality measures. Let's start from the simplest centrality index, the **degree centrality**. We already computed the degree of each family, so we just need to normalize this measure by the number of nodes in the network 
+```{r}
+# how many nodes in the network?
+n <- length(V(marriage))
+# degree centrality = degree/(n-1)
+deg.cent <-  deg/(n-1)
+```
+The betweenness centrality index is computed using the command
+```{r}
+## compute the betweenness for each family
+bet<-betweenness(marriage)
+```
+Notice that the function `betweenness` provides a value that is not normalized (the formula we used in class was normalized). To obtain the same values we saw in class you need to divide the value by `n*(n-1)/2` (be careful with the parentheses)
+
+```{r}
+## compute the betweenness centrality index for each family
+bet.cent<-bet/(n*(n-1)/2)
+```
+To compute the closeness centrality we use the command `closeness` (no need to normalize the results here) 
+
+```{r}
+close.cent <- closeness(marriage)
+```
+
+Finally we can compute the eigenvector centrality index using the function `evcent`
+```{r}
+# compute eigenvector centrality
+eig.cent <- evcent(marriage, directed=FALSE)$vector
+```
+
+and page-rank 
+```{r}
+# compute page rank
+pr.cent <- page.rank(marriage, directed=FALSE)$vector
+```
+Both eigenvector centrality and pagerank are examples of neighbor centrality indices.    
+If you don't like the many decimal places, you can always change that by using the function `round`. If you want 2 decimal places, 
+```{r}
+round(pr.cent, 2)
+```
+
+
+
+Finally let's consider the triadic closure property and the clustering coefficient. In our software, the clustering coefficient is called `transitivity`
+```{r}
+## clustering coefficient for each family
+clust <- transitivity(marriage, type="local")
+```
+Notice that for some family, the result is `NaN`, i.e. `Not a Number`. Why do you think this is?    
+
+The last thing we will do with these indices, is to create a data.frame with all of them, to be eventually used in a statistical analysis
+
+```{r}
+indices <- data.frame(clust, deg.cent, bet.cent, close.cent, eig.cent, pr.cent)
+indices
+```
+
+To understand that all these indices measure centrality based on different definitions, we can plot all of them and see 
+
+```{r}
+# plot eigenvector vs betweeness centrality
+plot(eig.cent, bet.cent, xlim=c(0,1), ylim=c(0,1)) 
+# plot all pair of indices
+pairs(indices, xlim=c(0,1), ylim=c(0,1))
+# compute correlations among indices
+cor(indices)
+```
+You can see that they are all highly correlated,of course. 
+For clustering, the software does not compute the correlation (output is `NA`, i.e not available), because some values of clustering are not numbers.
+As an exercise, change those values to 0, and then repeat the computation of correlations.
+
+
+A measure of Structural holes
+-------------------------------
+
+The package contains a measure of structural holes, the constraint. This is 
+the measure used by Burt, to measure brokerage opportunities
+
+```{r}
+## compute constraint (structural hole)
+constr <- constraint(marriage)
+constr
+```
+This command gives a vector of indicators, one for each family.
+
+
+
+Network data with additional node variables
+--------------------------------
+
+
+```{r datacreation, echo=FALSE}
+at <- read.table("nodal.attr.txt", header=TRUE)
+att<-at[,1:2]
+write.table(att, file="attr.txt", row.names=FALSE)
+attr <- read.table("attr.txt", header=TRUE)
+#head(attr)
+#tail(attr)
+rm(at,att,attr)
+```
+Sometimes you will have data on the network connections, but also data on
+the individual characteristics of the nodes. Let's look at the data contained in the two files: `edgelist.txt` and `attr.txt`. The fist contains a list of all the edges in the network, the second contains for each individual in the network 2 variables: sex and race. In total we have 256 individuals in this network, and 257 links in total.    
+Sex is equal to 1 if male, and 2 if female. Race is equal to 1 if white/caucasian, and 2 if black/african american.
+A link represents a sexual relationship between the nodes involved.
+
+```{r}
+# load list of edges in memory
+el <- read.table("edgelist.txt")
+# load individual attributes in memory
+attr <- read.table("attr.txt", header=TRUE)
+```
+
+We will now create the network object so that we can plot it and do the analysis. 
+```{r}
+g <- graph.edgelist(as.matrix(el), directed=FALSE)
+g
+```
+Notice that this graph does not have any attributes. Now we will attach sex and race to each node. 
+```{r}
+V(g)$sex <- attr$sex 
+```
+If you now check the network object
+```{r}
+g
+```
+we observe that there is an attribute attached to the vertices, i.e. sex.
+Attaching the race is similar
+```{r}
+V(g)$race <-attr$race
+```
+and now the network contains 2 attributes
+```{r}
+g
+```
+Let's make a plot of the network, where we highlight the gender using colors. 
+Let's use blue for males and red for females
+
+```{r}
+par(mfrow=c(1,1))
+vcol <- rep("red", 256)
+vcol[attr$sex == 1] <- "blue"
+V(g)$color <- vcol
+```
+We can also change other parmeters directly in the `plot` command. Let's change the size of the nodes (`vertex.size=7`), the color of the nodes labels (`vertex.label.color="white"`), and rescale the label size to 60% (`vertex.label.cex=0.6`), increase the width of the edges (`edge.width= 2`) and the color of the edges (`edge.color = "black"`, default is usually gray)
+```{r}
+plot(g, vertex.size=7, vertex.label.color="white", vertex.label.cex=0.6, edge.width= 2, edge.color = "black" )
+```
+You can save this image for your write up in two ways. One is manually clicking on "Export" in RStudio plot window, and selecting the format. The second is by writing the following simple code (let's say you want to save the picture in `.png` format)
+
+```{r}
+png("Figure1.png")    # choses the file to save the picture
+plot(g, vertex.size=7, vertex.label.color="white", vertex.label.cex=0.6, edge.width= 2, edge.color = "black" )   # produces the figure
+dev.off()   # closes the file 
+```
+If you now open your working folder, you should find a new file with `png` extension, which contains the graph plot.
+There are many other formats (JPEG, TIFF, PS, etc). for example, to save the picture in pdf format you type
+
+```{r}
+pdf("Figure1.pdf")    # choses the file to save the picture
+plot(g, vertex.size=7, vertex.label.color="white", vertex.label.cex=0.6, edge.width= 2, edge.color = "black" )   # produces the figure
+dev.off()   # closes the file 
+```
+Let's now make another picture where we highlight the racial group using colors: we will have the Caucasians represented in `green` and the African Americans in `orange`.
+
+
+```{r}
+par(mfrow=c(1,1))
+vcol <- rep("green", 256)
+vcol[attr$race == 2] <- "orange"
+V(g)$color <- vcol
+plot(g, vertex.size=7, vertex.label.color="white", vertex.label.cex=0.6, edge.width= 2, edge.color = "black" )   # produces the figure
+```
+How about visualizing the race and gender contemporaneously in the same graph?
+We could use the colors for race and the shape of the nodes to indicate gender.
+We will use circles for females and squares for males.
+```{r}
+par(mfrow=c(1,1))
+vshape <- rep("circle", 256)
+vshape[attr$sex == 1] <- "square"
+plot(g, vertex.size=7, vertex.label.color="black", vertex.label.cex=0.6, edge.width= 2, edge.color = "black", vertex.shape=vshape )   # produces the figure
+```
+
+We can now compute all of the network measures we discussed before. And add those to the data we already have on race and gender, to perform additional analyses, e.g. regression analysis.
+
+
+
+
+Community structure
+-------------------------------
+
+Social networks usually organize in communities. Discovering these commmunities is sometimes hard, especially when we only observe the link among individuals and have no additional information on them. 
+
+```{r}
+comm_struct <- fastgreedy.community(g)
+```
+To check how many communities we have
+```{r}
+length(comm_struct)
+```
+and to see the size of each community
+```{r}
+sizes(comm_struct)
+```
+We can also display the community of each individual
+```{r}
+membership(comm_struct)
+```
+We can also plot
+```{r}
+plot(comm_struct,g, vertex.size=7, vertex.label.color="black", vertex.label.cex=0.4, edge.width= 2, edge.color = "black", vertex.shape=vshape )   # produces the figure
+```
+
+

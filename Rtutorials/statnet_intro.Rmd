@@ -1,0 +1,275 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+<style type="text/css">
+body, td {
+   font-size: 18px;
+   font-family: Times;
+}
+code.r{
+  font-size: 16px;
+}
+pre {
+  font-size: 18px;
+  font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+pre code {
+  font-size: 16px;
+  font-family: courier new, 'sans serif', 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+code {
+  font-size: 16px;
+  font-family: courier new, Times;
+}
+
+</style>
+
+
+
+
+Tutorial on estimation of network models
+========================================================
+
+As in the previous tutorial, the gray boxes indicate the code, the white boxes indicate the output in R, and the rest is the text/explanations.   
+
+
+The package `statnet` allows you to estimate both logistic models and ERGMs. To install the package on your computer, use the command
+
+```{r, install, eval=FALSE}
+install.packages("statnet", dependencies=TRUE, repos="http://lib.stat.cmu.edu/R/CRAN/")
+install.packages("ergm.count", dependencies=TRUE, repos="http://lib.stat.cmu.edu/R/CRAN/")
+install.packages("latticeExtra", dependencies=TRUE, repos="http://lib.stat.cmu.edu/R/CRAN/")
+```
+It is important that you use the option `dependencies=TRUE`, because you need to install several packages in addition to the base package: this option will take care of that.
+
+To use the library you just type (there is a lot of output, because `R` loads many different packages, so be patient) 
+
+```{r statnet, message=FALSE, warning=FALSE}
+# load the library
+library(statnet)
+```
+  
+The package contains several network datasets. You can get a list of the data included by typing 
+
+```{r dataergm}
+# check data in the package
+data(package="ergm")
+```
+
+Let's use a dataset we are familiar with: the network of florentine families.
+
+```{r}
+# load data of florentine families
+data(florentine)
+```
+
+The data contains the network of marriages and business relationships among the families. In addition there are three variables for each family: wealth (in thousands of lira), number of priorates (seats on the civic council), and totalities (total number of business ties and marriages in the dataset). To see a quick description we type
+
+```{r marriage, echo=TRUE, results=FALSE}
+# network of marriages
+flomarriage
+```
+
+and to see a brief desctiption of the business links we type
+
+```{r business, echo=TRUE, results=FALSE}
+# network of business relationships
+flobusiness
+```
+
+We can plot the network to get a better picture (note that this package has slightly different syntax than `igraph`). Here is the marriage network
+
+```{r}
+# plot network of marriages
+set.seed(1977)
+plot(flomarriage, displaylabels=TRUE )
+```
+
+and the business network is shown below
+
+```{r}
+# plot network of business
+set.seed(1977)
+plot(flobusiness, displaylabels=TRUE )
+```
+
+Logistic regression models
+----------------------------------
+
+Now we want to estimate a logistic regression model. We model the probability that two families have a marriage connection as a function of a constant and the sum of their wealth
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =	\beta_{0}+\beta_{1}\left(x_{i}+x_{j}\right)$$
+ 
+This is accomplished with the command
+
+```{r estmodel1}
+# estimate logistic regression model
+model1<-ergm(flomarriage~edges +nodecov("wealth"), estimate="MPLE" )
+```
+
+The option `estimate="MPLE"` tells `R` to estimate a logistic regression model.   
+
+To understand the notation, it is better to rewrite the model in terms of the probability for the entire network, instead of looking at a single link. It can be shown that the probability of observing network $g$ is 
+
+$$P(g;\beta,x)	=	\frac{\exp\left[\beta_{0}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}+\beta_{1}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left(x_{i}+x_{j}\right)\right]}{\prod_{i=1,j\neq i}\left[1+\exp\left(\beta_{0}+\beta_{1}\left(x_{i}+x_{j}\right)\right)\right]}$$
+
+What does the numerator represents? 
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}$= `edges`
+  = number of links/edges in the network 
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left(x_{i}+x_{j}\right)$ = `nodecov("wealth")`
+ = number of links/edges in the network, weighted by the sum of wealth of the nodes forming the link 
+ 
+So in `R` we write the formula `flomarriage ~ edges + nodecov("wealth")` to estimate the model.   
+To check the estimation results we type
+
+```{r model1}
+# show results of logistic regression model
+summary(model1)
+```
+
+Interpreting the results is important. The output of the software provides the `Formula` of the model that we estimated. The `Iterations` have no meaning in this model, so we do not care.    
+The table with `Maximum Likelihood Results` is the most important part. Here the output reports the estimated parameters (`Estimate`), the standard error (`Std. Error`), the Monte Carlo standard error (`MCMC %`) and the p-value for the t-tests (`p-value`).
+The stars are associated with the significance level of the estimated parameters. Remember, the smaller the p-value, the more confident we are about rejecting the hypothesis that our parameters are equal to zero.
+The `Null Deviance` is the fit of a null model, with no explanatory variables. The `Residual Deviance` is the fit of our model. As a rule of thumb you want some difference between the two numbers, otherwise your explanatory variables are not good predictors for the links.   
+The `AIC` and `BIC` indicators are used to compare different models. So if you have several alternative models that you are considering, the rule of thumb is to prefer the one with the smallest AIC and BIC.    
+In this model we estimate $\beta_{0}=-2.59$ and $\beta_{1}=0.01$, so our estimated model is 
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  -2.59+0.01\left(x_{i}+x_{j}\right)$$
+and the probability of a link between *i* and *j* is estimated as 
+
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59+0.01\left(x_{i}+x_{j}\right) \right] }{1+ \exp\left[ -2.59+0.01\left(x_{i}+x_{j}\right) \right]}$$
+We can now compute the probability of a link between two families that have zero wealth, for example, i.e. $x_{i}=x_{j}=0$, 
+```{r, echo=FALSE}
+p<- exp(-2.59)/(1+ exp(-2.59) )
+```
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59 \right] }{1+ \exp\left[ -2.59\right]} =`r p`$$  
+
+Let's compute the probability of a link between two families that have different wealth, for example, i.e. $x_{i}=10$ and $x_{j}=2$, 
+```{r, echo=FALSE}
+p2<- exp(-2.59+0.01*12)/(1+ exp(-2.59+0.01*12) )
+```
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59 + 0.01 \left(10+2\right) \right] }{1+ \exp\left[ -2.59 + 0.01 \left(10+2\right)\right]} =`r p2`$$
+
+******
+
+Let's now consider an alternative model. We model the log-odds of a link as a function of a constant and the absolute difference in wealth for the two families
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =	\beta_{0}+\beta_{1}\left|x_{i}-x_{j}\right|$$
+
+
+This model is estimated as follows
+```{r}
+# estimate logistic regression model
+model2<-ergm(flomarriage~edges + absdiff("wealth"), estimate="MPLE")
+```
+
+
+Again, to explain the formula, it is better to re-write the model in terms of probability for the entire network. It can be shown that the probability of observing network $g$ is 
+
+$$
+P(g;\beta,x)  =	\frac{\exp\left[\beta_{0}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}+\beta_{1}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left|x_{i}-x_{j}\right|\right]}{\prod_{i=1,j\neq i}\left[1+\exp\left(\beta_{0}+\beta_{1}\left|x_{i}-x_{j}\right|\right)\right]}
+$$
+
+What does the numerator represents? 
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}$= `edges`
+  = number of links/edges in the network 
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left|x_{i}-x_{j}\right|$ = `absdiff("wealth")`
+ = number of links/edges in the network, weighted by the absolute difference in income of the nodes forming the link 
+ 
+So in `R` we write the formula `flomarriage ~ edges + absdiff("wealth")` to estimate the model.   
+To check the estimation results we type
+
+```{r model2}
+# show results of logistic regression model
+summary(model2)
+```
+
+
+In your project, it is better to show a cleaner version of the results, instead of the raw output. Tables in business reports or journal articles usually look like this
+```{r, results='asis', message=FALSE, echo=F, warning=FALSE, tidy=TRUE}
+#library(texreg)
+#htmlreg(list(model1,model2), doctype = F, html.tag = F, inline.css = T, 
+#    head.tag = F, body.tag = F, center = T, single.row = F, caption = "",
+#        custom.coef.names=c("$$constant$$", "$$wealth_i + wealth_j$$", "$$|wealth_i - wealth_j|$$"))
+```
+
+For each variable we report the associated paramater, the standard error (in parenthesis) and the level of significance (with the stars). For each model, we report some measure of fit, like the AIC, BIC and the value of the likelihood in natural logs.
+
+
+Introducing network variables as explanatory variables
+-------------------------------------------------------
+
+Suppose we want to estimate a logistic model where the odds of a link also depend on the existence of a common friend between *i* and *j*. We modify Model 2 above to include this new variable, 
+
+
+$$\ln\left[\frac{P(g_{ij}=1\vert x_{i},x_{j},g_{-ij},\beta)}{P(g_{ij}=0\vert x_{i},x_{j},g_{-ij},\beta)}\right]  =	\beta_{0}+\beta_{1}\left|x_{i}-x_{j}\right|+\beta_{2}\left(\sum_{k\neq i,j}g_{jk}g_{ki}\right)
+ $$
+
+The third component $\sum_{k\neq i,j}g_{jk}g_{ki}$ is the number of common neighbors of *i* and *j*. To estimate the model we use the following command 
+
+```{r triergmmple}
+# estimate logistic regression model
+model3<-ergm(flomarriage ~ edges + absdiff("wealth") + triangles, estimate="MPLE")
+```
+
+The probability of observing network g  is now
+
+$$
+P(g;\beta,x)  =	\frac{\exp\left[\beta_{0}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}+\beta_{1}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left|x_{i}-x_{j}\right|+\beta_{2}\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\sum_{k\neq i,j}g_{jk}g_{ki}\right]}{c(\beta)}
+$$
+  
+
+The three network statistics are now 
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}$ = `edges`
+  = number of links/edges in the network
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\left|x_{i}-x_{j}\right|$ = `absdiff("wealth")`
+ = number of links/edges in the network, weighted by the absolute difference in income of the nodes forming the link
+
+. $\sum_{i=1}^{n}\sum_{j\neq i}^{n}g_{ij}\sum_{k\neq i,j}g_{jk}g_{ki}$ = `triangles`
+ = number of triangles in the network     
+
+
+To see the estimated model we type 
+
+```{r}
+# show results of logistic regression model
+summary(model3)
+```
+
+However, this method of estimation has problems, as we discussed in class. Therefore, the best way to proceed is to change the estimation method to `MLE` (instead of `MPLE`). This will make sure that the estimate is done properly, using Monte Carlo simulations. Whenever you do the estimation using Monte Carlo, remember to set the seed of the random number generator, i.e. typing the command `set.seed(0)`. If you do not set the seed, every time you run this estimation command, you may have slightly different estimates, because the simulations will be slightly differnt.
+
+```{r triergmmcmc}
+# estimate ergm model with simulation method
+set.seed(0)
+model4<-ergm(flomarriage ~ edges + absdiff("wealth") + triangles, estimate="MLE",
+             control=control.ergm(MCMC.samplesize=10000) )
+```
+In the estimation options, we can modify the number of simulations for the Monte Carlo, with the option `control=control.ergm(MCMC.samplesize=10000)`: we use 10000 simulations for our estimation. There is some debate about how big you should set this number, but the theory suggest it shold be high: in general the higher the number of simulations, the more precise your estimates. However, setting the number of simulation very high also means that it will take longer to get an estimate. So there is a trade-off between precision and computational costs. The rule of thumb (there is a theoretical justification for it) is: if you have a network with $n$ nodes, you should set the number of simulations to *at least* a multiple of $n^2 \ln(n^2)$. In this case $n^2 \ln(n^2) = 1420$, so 10000 simulations should be sufficient for good precision. In general, it is a good idea to estimate the model several time, with different length of the simulations, and check if the estimated results change.   
+The results of the estimation for `model4` are summarized below
+
+```{r}
+# show results of ergm model
+summary(model4)
+```
+
+In addition to the results, we have a set of diagnostics for the simulation. The best way to check the simulation is usually to look at the figures.
+
+```{r}
+# run diagnostics for ergm model
+mcmc.diagnostics(model4)
+```
+
+The figure shows the results of the simulations. For each of the network statistics (`edges`, `absdiff.wealth` and `triangle`) the left graph shows the time series of the monte carlo simulation. If the simulation is correct, this should look like a i.i.d. sample. The figure on the right, shows the density estimated from the time-series. In general this density should look like a normal with mean zero. So in this model, we are immediately aware of a problem with the `triangles`. Indeed notice that the distribution does not look symmetric at all, and it is quite irregular. The other network statistics `edges` and `absdiff.wealth` are much more regular.   
+
+This is actually not surprising for this class of models. In general, when we introduce the `triangles`, the simulations become unstable. Possible practical solution to these problems are: 1) get rid of the triangles from the model; 2) insert additional variables and see if that changes the diagnostics; 3) run the estimation again, increasing the number of simulations.    
+This problem has to do with the so-called `degeneracy` problem of ERGMs. Given the network data, some parameters will imply very high probability for networks that are implausible: for example some model will imply probability of almost 1 for a network where everybody is connected; other models imply very high probability for models where nobody is connected. When this happens, the simulation does not work well, and our estimates are suspicious. The most practical way to deal with this issue, is to run the diagnostics and figure out if there is any problem. If that is the case, we can change the formula of our model and estimate a different model. In general there is no easy fix.
+
+
+
