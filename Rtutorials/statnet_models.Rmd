@@ -1,0 +1,340 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+<style type="text/css">
+body, td {
+   font-size: 18px;
+   font-family: Times;
+}
+code.r{
+  font-size: 16px;
+}
+pre {
+  font-size: 18px;
+  font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+pre code {
+  font-size: 16px;
+  font-family: courier new, 'sans serif', 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+code {
+  font-size: 16px;
+  font-family: courier new, Times;
+}
+
+</style>
+
+
+
+
+Specifications for logistic regression models
+========================================================
+
+As in the previous tutorial, the gray boxes indicate the code, the white boxes indicate the output in R, and the rest is the text/explanations.   
+
+
+The package `statnet` allows you to estimate both logistic models and ERGMs. In this tutorial we will focus on the different models that you can estimate using the package. 
+You have seen already several models in the previous tutorial. Remember the command for estimation of a logistic model 
+```{r eval=FALSE}
+ergm (formula, estimate="MPLE")
+```
+where the `formula` is an expression like `g ~ edges + absdiff("wealth")`. The formula contains several parts: `g` is the network object; `~` indicates that we are modeling the network using the following expression; `edges` introduces a constant; `absdiff("wealth")` is a variable that takes the absolute value of the difference in wealth.    
+
+Equivalently, for an ergm the command is
+```{r eval=FALSE}
+ergm (formula, estimate="MLE")
+```
+In this tutorial we will focus on the `formula`, and we will learn how to estimate different specifications of the logistic regressions and ergms. 
+
+Let's load the package
+
+```{r statnet, message=FALSE, warning=FALSE}
+# load the library
+library(statnet)
+```
+  
+Let's start with the same dataset we used in `statnet_intro` tutorial: the network of florentine families.
+
+```{r}
+# load data of florentine families
+data(florentine)
+```
+
+As you remember, the data contains the network of marriages and business relationships among the families. In addition there are three variables for each family: wealth (in thousands of lira), number of priorates (seats on the civic council), and totalities (total number of business ties and marriages in the dataset). To see a quick description we type
+
+```{r marriage, echo=TRUE, results=FALSE}
+# network of marriages
+flomarriage
+```
+and to see a brief desctiption of the business links we type
+```{r business, echo=TRUE, results=FALSE}
+# network of business relationships
+flobusiness
+```
+
+
+Logistic regression models
+----------------------------------
+
+### Continuous variables, sum
+
+Let's start with a model that we have already used in the previous tutorial.
+We model the probability that two families have a marriage connection as a function of a constant and the sum of their wealth
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =	\beta_{0}+\beta_{1}\left(wealth_{i}+wealth_{j}\right)$$
+ 
+This is accomplished with the `formula` (that we store as `f1` for convenience)
+
+```{r formula1}
+f1 <- flomarriage ~ edges + nodecov("wealth")
+```
+
+To estimate the logistic regression model we now type
+```{r estmodel1}
+# estimate logistic regression model
+model1<-ergm(f1, estimate="MPLE" )
+```
+
+Remember that the option `estimate="MPLE"` tells `R` to estimate a logistic regression model (and not an ERGM).   
+To check the estimation results we type
+
+```{r model1}
+# show results of logistic regression model
+summary(model1)
+```
+
+Let's briefly review how to interpret the results. The output of the software provides the `Formula` of the model that we estimated. The `Iterations` have no meaning in this model, so we do not care.    
+The table with `Maximum Likelihood Results` is the most important part. Here the output reports the estimated parameters (`Estimate`), the standard error (`Std. Error`), the Monte Carlo standard error (`MCMC %`) and the p-value for the t-tests (`p-value`).
+The stars are associated with the significance level of the estimated parameters. Remember, the smaller the p-value, the more confident we are about rejecting the hypothesis that our parameters are equal to zero.
+The `Null Deviance` is the fit of a null model, with no explanatory variables. The `Residual Deviance` is the fit of our model. As a rule of thumb you want some difference between the two numbers, otherwise your explanatory variables are not good predictors for the links.   
+The `AIC` and `BIC` indicators are used to compare different models. So if you have several alternative models that you are considering, the rule of thumb is to prefer the one with the smallest AIC and BIC.    
+In this model we estimate $\beta_{0}=-2.59$ and $\beta_{1}=0.01$, so our estimated model is 
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  -2.59+0.01\left(x_{i}+x_{j}\right)$$
+and the probability of a link between *i* and *j* is estimated as 
+
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59+0.01\left(x_{i}+x_{j}\right) \right] }{1+ \exp\left[ -2.59+0.01\left(x_{i}+x_{j}\right) \right]}$$
+We can now compute the probability of a link between two families that have zero wealth, for example, i.e. $x_{i}=x_{j}=0$, 
+```{r, echo=FALSE}
+p<- exp(-2.59)/(1+ exp(-2.59) )
+```
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59 \right] }{1+ \exp\left[ -2.59\right]} =`r p`$$  
+
+Let's compute the probability of a link between two families that have different wealth, for example, i.e. $x_{i}=10$ and $x_{j}=2$, 
+```{r, echo=FALSE}
+p2<- exp(-2.59+0.01*12)/(1+ exp(-2.59+0.01*12) )
+```
+$$ P(g_{ij}=1) = \frac{ \exp\left[ -2.59 + 0.01 \left(10+2\right) \right] }{1+ \exp\left[ -2.59 + 0.01 \left(10+2\right)\right]} =`r p2`$$
+
+
+### Continuous variables, absolute difference
+
+Let's now consider an alternative model. We model the log-odds of a link as a function of a constant and the absolute difference in wealth for the two families
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =	\beta_{0}+\beta_{1}\left|wealth_{i}-wealth_{j}\right|$$
+
+The formula for this model is
+```{r}
+f2 <- flomarriage ~ edges + absdiff("wealth")
+```
+and the model is estimated as follows
+```{r}
+# estimate logistic regression model
+model2<-ergm(f2, estimate="MPLE")
+```
+
+To look at the results, we type
+```{r model2}
+# show results of logistic regression model
+summary(model2)
+```
+
+### Continuous variables, squared difference
+
+Let's now consider an alternative model. We model the log-odds of a link as a function of a constant and the squared difference in wealth for the two families
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1}\left(wealth_{i}-wealth_{j}\right)^2$$
+
+The formula for this model is
+```{r}
+f3 <- flomarriage ~ edges + absdiff("wealth", pow=2)
+```
+and the model is estimated as follows
+```{r}
+# estimate logistic regression model
+model3<-ergm(f3, estimate="MPLE")
+```
+
+To look at the results, we type
+```{r model3}
+# show results of logistic regression model
+summary(model3)
+```
+
+### Continuous variables, more complicated models
+
+We model the log-odds of a link as a function of a constant, the sum of wealth of the two families and the absolute difference in wealth for the two families
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1}\left(wealth_{i}+wealth_{j}\right) +\beta_{2}\left|wealth_{i}-wealth_{j}\right|$$
+
+The formula for this model is
+```{r}
+f4 <- flomarriage ~ edges + nodecov("wealth") + absdiff("wealth")
+```
+and the model is estimated as follows
+```{r}
+# estimate logistic regression model
+model4<-ergm(f4, estimate="MPLE")
+```
+
+To look at the results, we type
+```{r model4}
+# show results of logistic regression model
+summary(model4)
+```
+
+or we can include the difference in priorates and sum in priorates as additional variables
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1}\left(wealth_{i}+wealth_{j}\right) +\beta_{2}\left|wealth_{i}-wealth_{j}\right| 
++\beta_{3}\left(priorates_{i}+priorates_{j}\right) +\beta_{4}\left|priorates_{i}-priorates_{j}\right|$$
+
+The formula for this model is
+```{r}
+f5 <- flomarriage ~ edges + nodecov("wealth") + absdiff("wealth")+ nodecov("priorates") + absdiff("priorates")
+```
+and the results are
+```{r}
+# estimate and show logistic regression model
+model5<-ergm(f5, estimate="MPLE")
+summary(model5)
+```
+
+Clearly, from the table of results, this is not the greatest model for our data. 
+
+
+
+
+### categorical variables, and homophily 
+
+Sometimes we will have categorical variables in our data. How do we include those in the model?
+Let's use another dataset, that contains categorical variables
+```{r}
+data(faux.mesa.high)
+faux.mesa.high
+```
+The data contain the friendship network of a (hypothetical) high school and each students has 2 attributes: sex, grade and race.
+To get an idea of how the variables look like, you can type
+
+```{r}
+summary(faux.mesa.high)
+```
+or you can do the same for each variable, using the commands `table` and `get.vertex.attribute`
+
+```{r}
+table(get.vertex.attribute(faux.mesa.high, "Race"))
+table(get.vertex.attribute(faux.mesa.high, "Grade"))
+table(get.vertex.attribute(faux.mesa.high, "Sex"))
+```
+
+The school contains mostly minorities (hispanic and native americans), while the gender distribution is balanced. There seem to be more kids in the lowest grades.
+
+Suppose we want to estimate a model in which we test gender homophily. We want a formula that allows us to test if there is a higher probability of forming links among people of the same gender.    
+Our model is 
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1} I\left(sex_{i}=sex_{j}\right) $$
+where $I\left(sex_{i}=sex_{j}\right)$ is an indicator function: it is equal to 1 if $i$ and $j$ have the same sex, and 0 otherwise.    
+The formula for such model is 
+```{r}
+f6 <- faux.mesa.high ~ edges + nodematch("Sex")
+```
+and we estimate 
+```{r}
+model6 <- ergm(f6, estimate="MPLE")
+summary(model6)
+```
+The results show evidence of gender homophily: the odds ratio of a link increases if $i$ and $j$ are of the same gender.   
+
+We can do the same for race
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1} I\left(race_{i}=race_{j}\right) $$
+
+with a slight change in the formula (substitute "Sex" with "Race")
+```{r}
+f7 <- faux.mesa.high ~ edges + nodematch("Race")
+```
+and we estimate 
+```{r}
+model7 <- ergm(f7, estimate="MPLE")
+summary(model7)
+```
+Again, there is evidence of homophily by race.    
+We can even be more sophisticated. For example, we may think that each racial group have different levels of homophily. So we can introduce an indicator variable for each group, 
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1} I\left(race_{i}=race_{j = Black}\right)+\beta_{2} I\left(race_{i}=race_{j}=Hisp\right)+\beta_{3} I\left(race_{i}=race_{j}=NatAm\right)+\beta_{4} I\left(race_{i}=race_{j}=Other\right)+\beta_{5} I\left(race_{i}=race_{j}=White\right) $$
+
+This more complicated model is estimated using the formula
+```{r}
+f8 <- faux.mesa.high ~ edges + nodematch("Race", diff=TRUE)
+```
+Notice that we only use one variable in the formula (`nodematch("Race", diff=TRUE)`). The multiple levels of the variables will be automatically inserted in the model by the option `diff=TRUE`. Indeed let's look at the estimation output
+```{r}
+model8 <- ergm(f8, estimate="MPLE")
+summary(model8)
+```
+
+This model looks horrible. Soemthing went wrong in the estimation. The problem is that there are almost no links where both individuals are black or other race. This creates problems in estimating those coefficients. To see the problem we use the command
+
+```{r}
+mixingmatrix(faux.mesa.high, "Race")
+```
+
+The matrix counts the number of links among nodes of different racial groups. We are interested in the diagonal, where we count links among nodes of the same racial group. Notice that indeed there are no links where both individuals are black. Same issue for the group Other.
+
+We can decide to drop some of the variables, in particular, we will keep "Hisp", "NatAm", and "White". 
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1} I\left(race_{i}=race_{j}=Hisp\right)+\beta_{2} I\left(race_{i}=race_{j}=NatAm\right)+\beta_{3} I\left(race_{i}=race_{j}=White\right) $$
+
+
+To do that we need to tell the function `nodematch` to keep only the 2nd, 3rd and 5th value of the variable. We do that by introducing an option `keep=c(2,3,5)`, which accomplishes what we want.     
+The formula is now
+
+```{r}
+f9 <- faux.mesa.high ~ edges + nodematch("Race", diff=TRUE, keep=c(2,3,5))
+```
+and we get
+```{r}
+model9 <- ergm(f9, estimate="MPLE")
+summary(model9)
+```
+If you wanted to keep only "Hisp" and "NatAm" you could have used the formula
+```{r}
+f9 <- faux.mesa.high ~ edges + nodematch("Race", diff=TRUE, keep=c(2,3))
+```
+
+
+What about grade? Are students in the same grade more likely to form friendships than students in different grades? We run the following model
+```{r}
+f10 <- faux.mesa.high ~ edges + nodematch("Grade", diff=TRUE)
+model10<-ergm(f10, estimate="MPLE")
+summary(model10)
+```
+Not surprisingly, there is homophily by grade. This may be due to some institutional and organizational constraint of the school. To check the matrix of links by grade we use 
+```{r}
+mixingmatrix(faux.mesa.high, "Grade")
+```
+Which shows most of the friendships are among students of the same grade.
+It seems that there is extensive evidence of homophily in this school, by gender, race and grade.
+
+
+We can also be interested in how the probability of linking varies with a specific characteristic: for example, do males tend to link more than females?
+
+$$\ln\left[\frac{P(g_{ij}=1)}{P(g_{ij}=0)}\right]  =  \beta_{0}+\beta_{1} \left[I\left(sex_{i}= male\right)+I\left(sex_{j}=male\right)\right] $$
+
+
+```{r}
+f11<- faux.mesa.high ~ edges + nodefactor("Sex")
+model11<- ergm(f11, estimate="MPLE")
+summary(model11)
+```
+

@@ -19,6 +19,10 @@
 
 [Examples of Network analysis with R](): these were my notes for an MBA class
 
+[Intro to ERGM estimation with R](): these were my notes for an MBA class
+
+[ERGM estimation of different models with R](): these were my notes for an MBA class
+
 [lighthergm vignette]()
 
 
