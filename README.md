@@ -11,6 +11,8 @@
 
 [Mele 2022](http://meleangelo.github.io/files/homophily_dec2019_revisionJBES.pdf): paper that describes the economic model that micro-founds the hierarchical ERGMs
 
+[Dahbura et al 2021](https://arxiv.org/abs/2105.12704)
+
 ## R tutorials
 
 [Introduction to Network Analysis using R](https://yunranchen.github.io/intro-net-r/): Book on networks, with applications in R. Chapters 1-3 are useful
