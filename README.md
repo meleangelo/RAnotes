@@ -5,9 +5,9 @@
 
 [Notes on network models](models/lecturenotes_networks.pdf): Preliminary version of a set of lecture notes I am writing about networks, network models and estimation of these models. 
 
-[Notes on ERGMs](): 
+[Notes on ERGMs](): TBA
 
-[hergms]()
+[hergms](): TBA
 
 [Mele 2022](http://meleangelo.github.io/files/homophily_dec2019_revisionJBES.pdf): paper that describes the economic model that micro-founds the hierarchical ERGMs
 
@@ -30,7 +30,7 @@
 
 [ERGM estimation of different models with R](Rtutorials/statnet_models.Rmd): An overview of some terms for estimation of ERGMs in `ergm` and `statnet`.
 
-[lighthergm vignette]()
+[lighthergm vignette](): TBA
 
 
 ## How-to for HPC
