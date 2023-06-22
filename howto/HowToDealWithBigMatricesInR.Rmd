@@ -1,30 +1,107 @@
 ---
-title: "BigMatricesInR"
+title: "Big matrices in R"
 author: "Angelo"
 date: "2023-06-22"
-output: html_document
+output: 
+  html_document:
+    number_sections: true
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+I have several models where estimation requires to deal with very large matrices. 
+If the matrix is sparse, then R has sparse matrix routines and methods to deal with it, such as the library `Matrix`. However, for dense matrices, this is not always possible. 
+
+The main constraint in using large matrices is the RAM size. To store a float number we need 8 bytes. So a 10000 x 10000 matrix would require 
+
+```{r}
+10000*10000*8
+``` 
+bytes or 
+```{r}
+10000*10000*8/1000000000
+``` 
+GB of ram to store it. As long as the computer has enough RAM to store **and** process other operations with the matrix, we are good.
+
+Now suppose we have a 100000 x 100000 matrix, thus requiring 
+```{r}
+100000*100000*8/1000000000
+``` 
+GB of RAM. In general most PC will have 32GB or 64GB, so this will not fit into memory. 
+
+So I want to figure out how to process these large matrices in R. 
+
+There is a package called `bigstatsr` which seems useful. I have experimented a little with it. 
+
+
+website: [https://privefl.github.io/bigstatsr/](https://privefl.github.io/bigstatsr/)
+
+
+# TASKS
+
+## Install the package on your pc
+
+use the CRAN version of the package, so use `install.packages("bigstatsr")`. You may need additional libraries to make things work. 
+
+Also, install `irlba`  and `RSpectra` for truncated SVDs and `Matrix` for sparse matrices. 
+
+## Read the documentation
+
+In the webpage there is a little of documentation. I think the best starting point is [https://privefl.github.io/R-presentation/bigstatsr.html#1](https://privefl.github.io/R-presentation/bigstatsr.html#1)
+
+## Play a little with `bigstatsr` and get comfortable with it. 
+
+I have used the simple example to get something out of it
+
+```{r bigstatsr example}
+library(bigstatsr)
+
+# Create the data on disk
+X <- FBM(nrow = 5000, ncol = 5000, backingfile = "test")$save()
+
+# If you open a new session you can do
+#X <- big_attach("test.rds")
+
+# Fill it by chunks with random values
+U <- matrix(0, nrow = nrow(X), ncol = 5); U[] <- rnorm(length(U))
+
+
+
+# How many cores you have in your computer
+NCORES <- nb_cores()
+
+# Fill the values of X with a low rank matrix. Notice that the filling is done by column (read documentation to understand why)
+# X = U U^T 
+big_apply(X, a.FUN = function(X, ind, U) {
+  X[, ind] <- tcrossprod(U, U[ind, ]) 
+  NULL  ## you don't want to return anything here
+}, a.combine = 'c', ncores = NCORES, U = U)
+
+# Check some values
+X[1:5, 1:5]
+
+# Compute first 10 PCs
+obj.svd <- big_randomSVD(X, fun.scaling = big_scale(), 
+                         k = 10, ncores = NCORES)
+
+# should observe a very large drop in the screeplot at the 5th eigenvalue
+plot(obj.svd)
+
+# Cleanup
+unlink(paste0("test", c(".bk", ".rds")))
 ```
 
-## R Markdown
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Compare times of `big_randomSVD` with `irlba`
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+I want to know which one is faster. Also, not sure how both use parallel execution, so check that as well. To run `irlba` you need a smallish matrix as it needs to run in RAM. So I would stick to 5000 rows and columns for these trials, unless you have more RAM. 
 
-```{r cars}
-summary(cars)
-```
+## How big of a matrix?
 
-## Including Plots
+At some point this is going to be impractical as well as using the RAM. In some cases, the issue is going to be that the backing file is big... I guess we can cancel the file `.bk` and `.rds` when we do not need it anymore in the code. 
 
-You can also embed plots, for example:
+## Figure out how this interacts with sparse matrices. 
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+In some cases I have a sparse matrix $A$ and a dense matrix $M$. I need to compute $P=2 A + M$. 
+ 
+- How does this impact memory usage? 
+- Is $P$ a `FBM` object automotically or not
+- How to practically do the sum? Since `FBM` object is accessed column by column, do I have to perform the operation using `big_apply` function?
